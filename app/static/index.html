@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PodCut AI</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23F5B700'/><path d='M11 9l13 7-13 7z' fill='%230E1116'/></svg>">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo">&#9654;</span> PodCut <b>AI</b></div>
+  <div id="health" class="health"></div>
+</header>
+
+<main>
+  <!-- ============================================================ NEW JOB -->
+  <section id="view-new" class="view">
+    <div class="hero">
+      <h1>Long podcast in.<br><span>Polished highlight out.</span></h1>
+      <p>Paste a YouTube / Drive / direct link or upload a recording. PodCut transcribes it, lets an LLM pick the
+        strongest moments and renders a subtitled 2&ndash;3&nbsp;minute video with music, intro and outro.</p>
+    </div>
+
+    <form id="form" class="card" autocomplete="off">
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab active" data-tab="link">Paste link</button>
+        <button type="button" class="tab" data-tab="upload">Upload file</button>
+      </div>
+      <div class="tabpane" data-pane="link">
+        <input id="url" name="url" type="url" placeholder="https://www.youtube.com/watch?v=...  or a Google Drive / direct .mp4 link">
+      </div>
+      <div class="tabpane hidden" data-pane="upload">
+        <label class="drop" id="drop">
+          <input id="file" name="file" type="file" accept="video/*,audio/*">
+          <span id="dropText">Drop a video or audio file here, or <u>browse</u></span>
+        </label>
+      </div>
+
+      <details open>
+        <summary>Episode details <small>(optional &ndash; used for titles &amp; name tag)</small></summary>
+        <div class="grid">
+          <label>Episode title<input name="title" placeholder="Auto: AI-generated"></label>
+          <label>Show / channel<input name="show" placeholder="e.g. The Founders Podcast"></label>
+          <label>Guest name<input name="guest" placeholder="Shows a lower-third name tag"></label>
+          <label>Guest role<input name="guest_role" placeholder="e.g. CEO, Acme Inc."></label>
+          <label>Host name<input name="host" placeholder="Optional"></label>
+          <label>Logo (PNG)<input name="logo" type="file" accept="image/png,image/jpeg"></label>
+        </div>
+      </details>
+
+      <details>
+        <summary>Edit settings</summary>
+        <div class="grid">
+          <label>Target length
+            <select name="seconds">
+              <option value="60">~1 min (Shorts style)</option>
+              <option value="90">~1.5 min</option>
+              <option value="150" selected>~2.5 min</option>
+              <option value="180">~3 min</option>
+              <option value="300">~5 min</option>
+            </select></label>
+          <label>Speech model
+            <select name="model">
+              <option value="base">base &ndash; fastest</option>
+              <option value="small" selected>small &ndash; balanced</option>
+              <option value="medium">medium &ndash; most accurate (slow on CPU)</option>
+            </select></label>
+          <label>Language
+            <select name="language">
+              <option value="">Auto-detect</option>
+              <option value="en">English</option>
+              <option value="hi">Hindi</option>
+            </select></label>
+          <div class="toggles">
+            <label class="toggle"><input type="checkbox" name="music" checked><span></span>Background music</label>
+            <label class="toggle"><input type="checkbox" name="subtitles" checked><span></span>Burn-in subtitles</label>
+            <label class="toggle"><input type="checkbox" name="hook" checked><span></span>Cold-open hook</label>
+          </div>
+        </div>
+      </details>
+
+      <button id="submit" class="primary" type="submit">Create highlight video</button>
+      <p id="formError" class="error hidden"></p>
+    </form>
+
+    <div class="pipeline-strip">
+      <div><b>1</b>Fetch</div><i></i><div><b>2</b>Clean audio</div><i></i><div><b>3</b>Transcribe</div><i></i>
+      <div><b>4</b>AI selects</div><i></i><div><b>5</b>Render</div><i></i><div><b>6</b>Deliver</div>
+    </div>
+
+    <section class="history">
+      <h2>Recent jobs</h2>
+      <ul id="history"><li class="muted">No jobs yet.</li></ul>
+    </section>
+  </section>
+
+  <!-- ============================================================ JOB VIEW -->
+  <section id="view-job" class="view hidden">
+    <button class="back" id="back">&larr; New video</button>
+    <div class="card">
+      <div class="jobhead">
+        <div>
+          <h2 id="jobTitle">Processing&hellip;</h2>
+          <p id="jobMsg" class="muted"></p>
+        </div>
+        <div class="pct" id="pct">0%</div>
+      </div>
+      <div class="bar"><div id="barFill"></div></div>
+      <ol id="stages" class="stages"></ol>
+      <div id="jobError" class="error hidden"></div>
+      <div class="row">
+        <button id="retry" class="secondary hidden">Retry from failed step</button>
+        <button id="toggleLog" class="link">Show log</button>
+      </div>
+      <pre id="log" class="log hidden"></pre>
+    </div>
+
+    <div id="result" class="hidden">
+      <div class="result-grid">
+        <div class="card player">
+          <video id="video" controls playsinline preload="metadata"></video>
+        </div>
+        <div class="card meta">
+          <span class="kicker">AI-suggested YouTube metadata</span>
+          <h3 id="ytTitle"></h3>
+          <p id="ytDesc"></p>
+          <div id="ytTags" class="tags"></div>
+          <div class="stats" id="stats"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Downloads</h3>
+        <div id="downloads" class="downloads"></div>
+      </div>
+      <div class="card">
+        <h3>What the AI kept &mdash; and why</h3>
+        <div class="tablewrap"><table id="cuts"><thead><tr>
+          <th>#</th><th>Source time</th><th>Length</th><th>Score</th><th>Topic</th><th>Reason</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+  </section>
+</main>
+<footer>PodCut AI &middot; faster-whisper + LLM + FFmpeg &middot; runs locally</footer>
+<script src="app.js"></script>
+</body>
+</html>
