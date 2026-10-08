@@ -1,0 +1,58 @@
+# PodCut AI - default pipeline settings.
+# Every value can be overridden per job from the web app or CLI.
+
+output:
+  target_seconds: 150        # length of the main edit (hook + body), excluding intro/outro
+  min_seconds: 110
+  max_seconds: 190
+  width: 1920
+  height: 1080
+  fps: 30
+  crf: 20                    # x264 quality (lower = better/bigger)
+  preset: veryfast
+
+transcribe:
+  model: small               # tiny | base | small | medium | large-v3
+  device: auto               # auto | cpu | cuda
+  language: null             # null = auto-detect (e.g. "en", "hi")
+  beam_size: 5
+
+llm:
+  provider: auto             # auto | groq | xai | openai  (auto = detect from API key prefix)
+  model: null                # null = provider default (groq: llama-3.3-70b-versatile, xai: grok-3-mini)
+  temperature: 0.2
+  chunk_tokens: 3500         # transcript tokens per request (keeps free-tier rate limits happy)
+  max_retries: 4
+
+editing:
+  block_min_seconds: 8       # a "moment" the LLM can pick is 8-40 s of continuous speech
+  block_max_seconds: 40
+  pad_before: 0.12
+  pad_after: 0.30
+  use_hook: true             # open with the strongest short moment as a cold open
+  hook_max_seconds: 20
+
+audio:
+  denoise: true
+  highpass_hz: 80
+  denoise_strength: 12       # afftdn noise reduction in dB
+  loudness_lufs: -14         # YouTube target
+  music: true
+  music_file: null           # null = first file in assets/music
+  music_volume_db: -26       # bed level under speech (ducked further while people talk)
+  music_card_volume_db: -14  # level during intro/outro cards
+
+cards:
+  intro_seconds: 4.0
+  outro_seconds: 5.0
+  accent_color: "#F5B700"
+  background_color: "#0E1116"
+  outro_text: "Thanks for watching"
+  outro_subtext: "Like & subscribe for more conversations"
+
+subtitles:
+  burn_in: true
+  max_words_per_line: 7
+  max_line_seconds: 2.8
+  font: Inter
+  font_size: 54              # at 1080p

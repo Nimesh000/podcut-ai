@@ -1,0 +1,15 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+jobs/
+clips/
+*.mp4
+*.mkv
+*.wav
+# generated on first run (see podcut/assets.py)
+assets/fonts/*.otf
+assets/music/*.mp3
+assets/music/_loop.wav
