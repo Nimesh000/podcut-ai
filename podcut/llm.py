@@ -13,6 +13,24 @@ PROVIDERS = {
     "openai": {"base_url": "https://api.openai.com/v1", "model": "gpt-4o-mini"},
 }
 
+# Groq retires models from time to time: the first of these that the key can use wins
+GROQ_FALLBACKS = ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "meta-llama/llama-4-maverick-17b-128e-instruct",
+                  "moonshotai/kimi-k2-instruct", "qwen/qwen3-32b", "meta-llama/llama-4-scout-17b-16e-instruct",
+                  "openai/gpt-oss-20b", "llama-3.1-8b-instant"]
+
+
+def pick_groq_model(client, wanted: str, log=print) -> str:
+    try:
+        available = {m.id for m in client.models.list().data}
+    except Exception as exc:
+        log(f"Could not list Groq models ({exc}); using {wanted}")
+        return wanted
+    for m in [wanted] + GROQ_FALLBACKS:
+        if m in available:
+            return m
+    chat = sorted(m for m in available if not any(x in m for x in ("whisper", "tts", "guard", "embed")))
+    return chat[0] if chat else wanted
+
 
 def detect_provider(key: str) -> str:
     if key.startswith("gsk_"):
@@ -46,17 +64,28 @@ class LLM:
         # the SDK already retries 429/5xx and honours Retry-After headers
         self.client = OpenAI(api_key=key, base_url=PROVIDERS[provider]["base_url"],
                              max_retries=self.retries, timeout=90)
+        if provider == "groq":
+            self.model = pick_groq_model(self.client, self.model, log)
+        log(f"LLM: {self.model} ({provider})")
+
+    def _complete(self, system: str, user: str):
+        import openai
+
+        kwargs = dict(model=self.model, temperature=self.temperature,
+                      messages=[{"role": "system", "content": system}, {"role": "user", "content": user}])
+        if "gpt-oss" in self.model:
+            kwargs["extra_body"] = {"reasoning_effort": "low"}
+        try:
+            return self.client.chat.completions.create(response_format={"type": "json_object"}, **kwargs)
+        except openai.BadRequestError:  # model without JSON mode / reasoning options
+            kwargs.pop("extra_body", None)
+            return self.client.chat.completions.create(**kwargs)
 
     def json_chat(self, system: str, user: str) -> dict:
         last_err: Exception | None = None
         for attempt in range(1, 3):
             try:
-                resp = self.client.chat.completions.create(
-                    model=self.model,
-                    temperature=self.temperature,
-                    response_format={"type": "json_object"},
-                    messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-                )
+                resp = self._complete(system, user)
                 content = resp.choices[0].message.content or ""
                 return parse_json(content)
             except ValueError as exc:  # bad JSON -> ask again
